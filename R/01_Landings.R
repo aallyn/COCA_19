@@ -462,19 +462,32 @@ landings_value<-landings_value%>%
     p = glance %>% map_dbl("p.value"),
     sign = p<0.05)
 
-sig_value<-landings_value%>%
+decreasing<-landings_value%>%
   filter(sign == "TRUE")%>%
   filter(slope < 0)%>%
   arrange(desc(slope))
 
-sig_clean<-sig_value%>%
+increasing<-landings_value%>%
+  filter(sign == "TRUE")%>%
+  filter(slope > 0)%>%
+  arrange(slope)
+
+decreasing_clean<-decreasing%>%
   unnest(data)%>%
   unnest(data)%>%
   select(PORT.NAME, STATE, slope, p)%>%
   distinct()%>%
   arrange(PORT.NAME)
 
-write.csv(sig_clean, "COCA_communities_revised.csv")
+increasing_clean<-increasing%>%
+  unnest(data)%>%
+  unnest(data)%>%
+  select(PORT.NAME, STATE, slope, p)%>%
+  distinct()%>%
+  arrange(PORT.NAME)
+
+write.csv(decreasing_clean, here("Data", "COCA_communities_decreasing.csv"))
+write.csv(increasing_clean, here("Data", "COCA_communities_increasing.csv"))
 
 #Kathy's revisions####
 coca_comm_unnested<-coca_comm%>%
@@ -523,6 +536,23 @@ unnested_2019<-high_val_2019%>%
   select(PORT.NAME, STATE, YEAR, SPPNAME, VALUE)
 write.csv(unnested_2015, "unnested_2015.csv")
 write.csv(unnested_2019, "unnested_2019.csv")
+
+##Carly's Revisions
+mean.function<-function(df){
+  df<-df%>%
+    unnest(data)%>%
+    filter(YEAR %in% 2015:2018)
+  mean(df$TOTAL, na.rm=TRUE)
+}
+
+high_value<-landings_value%>%
+  mutate(average_value = map_dbl(data, mean.function))%>%
+  select(PORT.NAME, STATE, average_value)%>%
+  arrange(desc(average_value))%>%
+  rowid_to_column()%>%
+  filter(rowid %in% seq(1,100))
+
+write.csv(high_value, here("Data", "high_value_communities_10_years.csv"))
 
 ##report example####
 example<-landings%>%
