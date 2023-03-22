@@ -584,14 +584,14 @@ coast<-ggplot(data = world) +
 
 ggplot(data = world) +
   geom_sf(fill = "#E9E9E9") +
-  geom_point(aes(x=-74.034, y=40.18), color = "#00736D", size = 3.5)+
+  geom_point(aes(x=-70.2568, y=43.6591), color = "#00736D", size = 3.5)+
   theme_gmri(
     plot.background = element_blank(),
     plot.title = element_text(color = "#00608A"),
     axis.title.x = element_text(color = "#00608A"),
     axis.title.y = element_text(color = "#00608A")
   )+
-  coord_sf(xlim=c(-76, -72), ylim=c(38,42), expand=TRUE) +
+  coord_sf(xlim=c(-72, -66), ylim=c(41,46), expand=TRUE) +
   xlab("Longitude") +
   ylab("Latitude")
 
@@ -646,5 +646,35 @@ ggplot(example, aes(YEAR, live_lbs))+
   ylab("Pounds")+
   facet_wrap(~SPPNAME, nrow=2, scales = "free_y")
  
-
 #scale_y_continuous(breaks = seq(2000, 80000, by=10000))
+##proportions graphic
+portland<-landings_value%>%
+  filter(PORT.NAME == "PORTLAND")%>%
+  select(PORT.NAME, data)%>%
+  unnest(data)%>%
+  select(!TOTAL)%>%
+  select(!AVG)%>%
+  unnest(data)
+
+portland<-portland%>%
+  group_by(SPPNAME)%>%
+  nest()%>%
+  mutate(AVG =  map(data, avg_fun))
+portland<-portland%>%
+  mutate(AVG = as.numeric(AVG))
+
+
+install.packages("treemap")
+library(treemap)
+
+treemap(portland,
+        
+        # data
+        index=c("SPPNAME", "AVG"),
+        vSize="AVG",
+        type="index"
+      
+) 
+
+#calculate percentage (which I don't feel like doing rn)
+ 
