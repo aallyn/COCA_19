@@ -1,0 +1,11 @@
+﻿Species,Condition,Value
+American lobster,Present,51.5
+Atlantic herring,Present,19.9
+Pollock,Present,3.8
+American eel,Present,2.8
+Bluefin tuna,Present,2
+American lobster,Future,31
+Atlantic herring,Future,4.95
+Pollock,Future,-26.1
+American eel,Future,NA
+Bluefin tuna,Future,NA

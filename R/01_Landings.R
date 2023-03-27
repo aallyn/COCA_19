@@ -582,19 +582,19 @@ coast<-ggplot(data = world) +
   geom_sf() +
   coord_sf(xlim=c(-76, -72), ylim=c(38,42))
 
-ggplot(data = world) +
-  geom_sf(fill = "#E9E9E9") +
-  geom_point(aes(x=-70.2568, y=43.6591), color = "#00736D", size = 3.5)+
+port_map<-ggplot(data = world) +
+  geom_sf(fill = "white") +
+  geom_point(aes(x=-70.2568, y=43.6591), color = "#00608A", size = 3.5)+
   theme_gmri(
     plot.background = element_blank(),
     plot.title = element_text(color = "#00608A"),
     axis.title.x = element_text(color = "#00608A"),
-    axis.title.y = element_text(color = "#00608A")
-  )+
+    axis.title.y = element_text(color = "#00608A"))+
   coord_sf(xlim=c(-72, -66), ylim=c(41,46), expand=TRUE) +
+  scale_x_continuous(breaks=c(-72, -70, -68))+scale_y_continuous(breaks = c(40, 42, 44, 46))+
   xlab("Longitude") +
   ylab("Latitude")
-
+ggsave("portland_map.png", port_map, height=4, width=3, unit="in")
 ###EXAMPLE DECADAL PLOTS (require clean_survey)
 clean_survey%>%
   filter(comname == "american lobster")
@@ -654,16 +654,21 @@ portland<-landings_value%>%
   unnest(data)%>%
   select(!TOTAL)%>%
   select(!AVG)%>%
-  unnest(data)
-
-portland<-portland%>%
+  unnest(data)%>%
   group_by(SPPNAME)%>%
   nest()%>%
-  mutate(AVG =  map(data, avg_fun))
-portland<-portland%>%
+  mutate(AVG =  map(data, avg_fun))%>%
   mutate(AVG = as.numeric(AVG))
 
+prct<-function(x){
+  (x/sum(portland$AVG))*100
+}
 
+portland_prop<-portland%>%
+  mutate(percent = map(AVG, prct))%>%
+  mutate(percent = as.numeric(percent))
+
+#treemap
 install.packages("treemap")
 library(treemap)
 
@@ -675,6 +680,55 @@ treemap(portland,
         type="index"
       
 ) 
+#stacked area
+pwm<-portland%>%
+  unnest(data)%>%
+  select(SPPNAME, YEAR, VALUE)%>%
+  group_by(SPPNAME)%>%
+  nest()%>%
+  mutate(TOTAL = map_dbl(data, sum_fun))%>%
+  mutate(TOTAL = as.numeric(TOTAL))%>%
+  arrange(desc(TOTAL))%>%
+  rowid_to_column()%>%
+  filter(rowid %in% seq(1,5))
 
-#calculate percentage (which I don't feel like doing rn)
- 
+pwm<-pwm%>%
+  unnest(data)%>%
+  select(SPPNAME, YEAR, VALUE)%>%
+  mutate(VALUE = parse_number(VALUE),
+         MIL = (VALUE/1000000))
+
+pwm_plot<-ggplot(data = pwm, aes(x=YEAR, y=MIL, group=SPPNAME, color=SPPNAME))+
+  geom_smooth(se=FALSE)+
+  scale_color_gmri()+
+  theme_gmri()+
+  xlab("Year")+ylab("$US (Million)")
+
+ggsave("portland_landings.png", pwm_plot, height=5, width=7, units = "in")
+  
+#port map
+library(leaflet)
+portland_map<-leaflet(data=pwm) %>% 
+  addProviderTiles(provider="Esri.OceanBasemap") %>%
+  setView(lng= -70.25682, lat=43.65910, zoom=7) %>%
+  addCircleMarkers(~-70.2568, ~43.6591, radius=10, color="#00608A")
+
+##bar chart..?
+barplot<-read_csv("barplot.csv")
+
+barplot<-barplot%>%
+  arrange(desc(Value))
+
+barplot<-ggplot(data=barplot, aes(y=Species, x=Value,  fill=Species, group=Condition,))+
+  scale_fill_manual(values=c("#00608A",
+                             "#ABB400",
+                             "#407331",
+                             "#EA4F12",
+                             "#EACA00"))+       
+  geom_bar(position="dodge",stat="identity", linewidth=0.5, color="white")+
+  theme_gmri(legend.position = "none",
+             axis.title.y = element_blank(),
+             axis.text.y = element_blank())+
+  xlab("Percent")
+print(barplot)
+ggsave("changes_plot.png", barplot, height=5, width=4, units="in")  
