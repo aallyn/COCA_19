@@ -6,11 +6,13 @@ library(readr)
 landings<-read.csv("Data/landings.csv")
 
 landings<-landings%>%
-  filter(YEAR > 2013)%>%
+  filter(YEAR > 2012)%>%
   select(YEAR, PORT.NAME, STATE, SPPNAME, LANDED.LBS, LIVE.LBS, VALUE)%>%
   group_by(YEAR, PORT.NAME, STATE)%>%
   nest()
 
+
+#state landings
 maine_landings<-landings%>%
   unnest(data)%>%
   filter(STATE == "ME")%>%
@@ -119,6 +121,8 @@ landings_value<-landings%>%
          AVG = map_dbl(data, avg_fun))%>%
   group_by(PORT.NAME, STATE)%>%
   nest()
+
+saveRDS(landings_value, "landings_value.RDS")
 
 test6<-landings_value%>%
   mutate(avg2015 = map_dbl(data, avg_2015),
@@ -732,6 +736,3 @@ barplot<-ggplot(data=barplot, aes(y=Species, x=Value,  fill=Species, group=Condi
   xlab("Percent")
 print(barplot)
 ggsave("changes_plot.png", barplot, height=5, width=4, units="in")  
-
-
-saveRDS(landings_value, "landings_value.RDS")
