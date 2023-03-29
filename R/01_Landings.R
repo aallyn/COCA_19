@@ -732,3 +732,6 @@ barplot<-ggplot(data=barplot, aes(y=Species, x=Value,  fill=Species, group=Condi
   xlab("Percent")
 print(barplot)
 ggsave("changes_plot.png", barplot, height=5, width=4, units="in")  
+
+
+saveRDS(landings_value, "landings_value.RDS")
