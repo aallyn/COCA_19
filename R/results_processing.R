@@ -39,7 +39,7 @@ land_sf <- ne_states(c("united states of america", "canada"), returnclass = "sf"
 # Feel free to work with these projection files in whichever way works best for you to get to the end goal! Below is just an example to show you what is in these rds files and how I have visualized some of the projection data before. 
 
 # Annoying box nonsense. We aren't going to be able to use `here` because the files would overwhelm GitHub so we don't want them in the repo.
-project_box_path<- "/Users/aallyn/Library/CloudStorage/Box-Box/Mills Lab/Projects/COCA19_Projections/"
+project_box_path<- "/Users/clovas/Library/CloudStorage/Box-Box/Mills Lab/Projects/COCA19_Projections/"
 projection_res_path <- paste0(project_box_path, "projections/")
 
 # In the end, I think the most efficient thing is going to be to have a nested dataframe and then write some functions that we can "map" over the rows of the dataframe. So, creating that...
@@ -95,7 +95,7 @@ plot_raw_dens_func<- function(dens_data, baseline_years = seq(from = 2010, to = 
 
     # For debugging, this won't run by itself. Have to go line by line inside the "if"
     if(FALSE){
-        dens_data <- all_proj_res$Density[[1]]
+        dens_data <- all_proj_res$Density[[1]]        #does this need to be [i] if we're looping?
         baseline_years <- seq(from = 2010, to = 2019)
         projection_years<- c(2055, 2075)
     }
@@ -138,6 +138,7 @@ plot_raw_dens_func<- function(dens_data, baseline_years = seq(from = 2010, to = 
         geom_sf(data = all_dens_grid, aes(fill = Value, color = Value, geometry = geometry)) +
         scale_fill_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
         scale_color_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
+        theme_gmri()+
         facet_wrap(~Variable, ncol = 3) +
         coord_sf(xlim = c(-182500, 1550000), ylim = c(3875000, 5370000), expand = F, crs = 32619)
     
@@ -152,6 +153,9 @@ all_proj_res <- all_proj_res %>%
 # How'd we do?
 all_proj_res$Dens_Panel_Plot[[1]]
 all_proj_res$Dens_Panel_Plot[[4]]
+
+names(all_proj_res)
+str(all_proj_res$Dens_Panel_Plot)
 
 # ANDREW NOTE: MIGHT WANT TO MASK OUT THE OUTER REACHES OF THE PREDICTED VALUES AS THESE ARE SLIGHTLY BEYOND THE MODELING DOMAIN
 
@@ -191,3 +195,26 @@ ggplot() +
     geom_point(data = all_proj_res$Density[[1]][all_proj_res$Density[[1]]$Time == as.Date("1985-03-16"),], aes(x = Lon, y = Lat), color = "red")
 
 # Now, the overlay. There are a ton of different ways to do this as you probably remember from before. Running out of steam a bit, but happy to help out as you get here!
+
+##CSL: Need the CRS to match; might be easier to convert the footprints rather than the model outputs?
+#panel plots
+
+all_dens_grid%>%
+  filter(Variable == "Baseline_Mean_Dens")%>%
+  ggplot() +
+  geom_sf(data = land_sf, fill = "gray50", color = "white", size = 0.15) +
+  geom_sf(data = all_dens_grid, aes(fill = Value, color = Value, geometry = geometry)) +
+  scale_fill_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
+  theme_gmri()+
+  scale_color_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
+  coord_sf(xlim = c(-182500, 1550000), ylim = c(3875000, 5370000), expand = F, crs = 32619)
+
+all_dens_grid%>%
+  filter(Variable == "Baseline_Mean_Dens")%>%
+  ggplot()+
+  geom_sf(data = land_sf, fill = "gray50", color = "white", size = 0.15) +
+  geom_sf(data = all_dens_grid, aes(fill = Value, color = Value, geometry = geometry)) +
+  theme_gmri()+
+  scale_fill_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
+  scale_color_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
+  coord_sf(xlim=c(-80, -55), ylim=c(32,48), crs="+init=epsg:4326")
