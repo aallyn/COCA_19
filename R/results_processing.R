@@ -11,6 +11,7 @@ library(raster)
 library(sf)
 library(terra)
 library(rnaturalearth)
+library(gmRi)
 
 # A land shapefile..
 land_sf <- ne_states(c("united states of america", "canada"), returnclass = "sf") %>%
@@ -195,26 +196,3 @@ ggplot() +
     geom_point(data = all_proj_res$Density[[1]][all_proj_res$Density[[1]]$Time == as.Date("1985-03-16"),], aes(x = Lon, y = Lat), color = "red")
 
 # Now, the overlay. There are a ton of different ways to do this as you probably remember from before. Running out of steam a bit, but happy to help out as you get here!
-
-##CSL: Need the CRS to match; might be easier to convert the footprints rather than the model outputs?
-#panel plots
-
-all_dens_grid%>%
-  filter(Variable == "Baseline_Mean_Dens")%>%
-  ggplot() +
-  geom_sf(data = land_sf, fill = "gray50", color = "white", size = 0.15) +
-  geom_sf(data = all_dens_grid, aes(fill = Value, color = Value, geometry = geometry)) +
-  scale_fill_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
-  theme_gmri()+
-  scale_color_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
-  coord_sf(xlim = c(-182500, 1550000), ylim = c(3875000, 5370000), expand = F, crs = 32619)
-
-all_dens_grid%>%
-  filter(Variable == "Baseline_Mean_Dens")%>%
-  ggplot()+
-  geom_sf(data = land_sf, fill = "gray50", color = "white", size = 0.15) +
-  geom_sf(data = all_dens_grid, aes(fill = Value, color = Value, geometry = geometry)) +
-  theme_gmri()+
-  scale_fill_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
-  scale_color_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
-  coord_sf(xlim=c(-80, -55), ylim=c(32,48), crs="+init=epsg:4326")
