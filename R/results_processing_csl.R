@@ -15,6 +15,7 @@ library(rnaturalearth)
 library(gmRi)
 install.packages("rasterVis")
 library(rasterVis)
+library(stringi)
 
 # A land shapefile..
 land_sf <- ne_states(c("united states of america", "canada"), returnclass = "sf") %>%
@@ -38,7 +39,8 @@ land_sf <- ne_states(c("united states of america", "canada"), returnclass = "sf"
 project_box_path<- "/Users/clovas/Library/CloudStorage/Box-Box/Mills Lab/Projects/COCA19_Projections/"
 projection_res_path <- paste0(project_box_path, "projections/")
 
-#Map RDS reading function to nest files into data frame
+
+# Map RDS reading function to nest files into data frame
 read_rds_func <- function(file_name) {
   out <- readRDS(paste0(file_name))
   return(out)
@@ -46,6 +48,22 @@ read_rds_func <- function(file_name) {
 
 all_proj_res <- tibble("File_Path" = list.files(projection_res_path, pattern = "_mean.rds", full.names = TRUE)) %>%
   mutate(., "Data" = map(File_Path, read_rds_func))
+
+# Map naming function to extract species and scenario from file path
+species_scen_func<-function(file_path){
+  temp<-stri_sub(file_path, 95,999)
+  out<-unlist(str_split(temp, "_mean.rds"))[[1]][1]
+  return(out)
+}
+
+all_proj_res<-all_proj_res%>%
+  mutate(., "Species_Scenario" = map(File_Path, species_scen_func))
+all_proj_res$Species_Scenario[1]
+
+#name_vector<-list.files(projection_res_path, pattern = "_mean.rds", full.names = TRUE)
+#for(i in 1:26){name_vector[i]<-stri_sub(name_vector[i],95,999)} # removes box path
+#for(i in 1:26){name_vector[i]<-unlist(str_split(name_vector[i],"_mean"))[1]} # removes _mean.rds
+
 
 # Look at just one of these objects to see its structure
 names(all_proj_res$Data[[1]])
@@ -66,7 +84,7 @@ get_dens_func<- function(data){
 all_proj_res <- all_proj_res %>%
   mutate(., "Density" = map(Data, get_dens_func))
 
-str(all_proj_res$Density[[1]])
+names(all_proj_res$Density[[1]])
 
 
 #Create gridded data (?) -> Convert points in sf polygon for plotting
@@ -85,14 +103,15 @@ bSquare <- function(x, a, coords = c("x", "y")) {
 }
 
 # Now a plotting function...
-plot_raw_dens_func<- function(dens_data, baseline_years = seq(from = 2010, to = 2019), projection_years = c(2055, 2075), ...){
+plot_raw_dens_func<- function(dens_data, species_scen, baseline_years = seq(from = 2010, to = 2019), projection_years = c(2055, 2075), ...){
   
-  # For debugging, this won't run by itself. Have to go line by line inside the "if"
-  if(FALSE){
-    dens_data <- all_proj_res$Density[[i]]
+  if(FALSE){ 
+    dens_data <- all_proj_res$Density[[1]]
+    species_scen <- all_proj_res$Species_Scenario[[1]]
     baseline_years <- seq(from = 2010, to = 2019)
     projection_years<- c(2055, 2075)
-  }
+    name_vector<-list.files(projection_res_path, pattern = "_mean.rds", full.names = TRUE)
+  } 
   
   # Going to want an "average" across the baseline years..
   base_data <- dens_data %>%
@@ -133,7 +152,7 @@ plot_raw_dens_func<- function(dens_data, baseline_years = seq(from = 2010, to = 
     scale_fill_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
     scale_color_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
     theme_gmri()+
-    #ggtitle(names(all_proj_res$File_Path)[i])+
+    ggtitle(species_scen)+
     facet_wrap(~Variable, ncol = 3) +
     coord_sf(xlim = c(-182500, 1550000), ylim = c(3875000, 5370000), expand = F, crs = 32619)
   
@@ -143,13 +162,12 @@ plot_raw_dens_func<- function(dens_data, baseline_years = seq(from = 2010, to = 
 
 # Let's map that to each of the species...
 all_proj_res <- all_proj_res %>%
-  mutate(., "Dens_Panel_Plot" = map(Density, plot_raw_dens_func))
+  mutate(., "Dens_Panel_Plot" = map2(Density, Species_Scenario, plot_raw_dens_func))
 
 # How'd we do?
 all_proj_res$Dens_Panel_Plot[[1]]
-all_proj_res$Dens_Panel_Plot[[4]]
+all_proj_res$Dens_Panel_Plot[[8]]
 
-names(all_proj_res)
 str(all_proj_res$Dens_Panel_Plot)
 
 # ANDREW NOTE: MIGHT WANT TO MASK OUT THE OUTER REACHES OF THE PREDICTED VALUES AS THESE ARE SLIGHTLY BEYOND THE MODELING DOMAIN
@@ -194,7 +212,8 @@ ggplot() +
 ##CSL: Convert foot print to polygons and fortify to use in ggplot
 #Created nested data frame?
 all_footprints <- unstack(all_foot_stack_bin)
-all_footprints<-tibble("footprints" = all_footprints)
+all_footprints<-tibble("footprints" = all_footprints)%>%
+  mutate(names = names(foot_stack)[all_ind])
 
 polygon_fun<-function(footprints){
   out<-rasterToPolygons(footprints, fun=function(x){x==1})
@@ -226,4 +245,28 @@ all_dens_grid%>%
   ggtitle("Lobster Baseline; Portland, ME")+
   coord_sf(xlim=c(-80, -55), ylim=c(32,48), crs="+init=epsg:4326") 
 
+###debug polygon functions
+plot(all_foot_stack_bin[[125]])
+#Okay, so some are just empty. Cool. 
+#dropping nulls
+all_footprints<-all_footprints%>%
+  drop_na()
 
+footprint_plots_df<-all_footprints%>%
+  dplyr::select(names, fortified)
+nrow(footprint_plots_df)
+footprint_plots<-vector("list", length = 98)
+names(footprint_plots)<-paste(unique(all_footprints$names))
+
+for(i in 1:98){
+  print(i)
+  
+  data<-footprint_plots_df[i,]%>%
+    unnest(fortified)
+  
+  footprint_plots[[i]]<-ggplot()+
+    geom_path(data = data, aes(x=long, y=lat, group=group))+
+    ggtitle(names(footprint_plots)[i])
+}
+
+footprint_plots[[91]] 
