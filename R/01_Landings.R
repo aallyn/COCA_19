@@ -84,3 +84,10 @@ top_species<-port_species%>%
   filter(PER.RANK > 0.9)%>%
   select(!SUM)
 write.csv(top_species, "top_species_by_port.csv")
+
+#unique species to optimize workflow
+unique_species<-top_species%>%
+  ungroup(PORT)%>%
+  select(SPPNAME)%>%
+  distinct()%>%
+  filter(!SPPNAME == "CONFIDENTIAL")

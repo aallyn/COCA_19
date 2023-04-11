@@ -227,7 +227,9 @@ fortify_fun<-function(foot_polygons){
 
 all_footprints<-all_footprints%>%
   mutate(foot_polygons = map(footprints, possibly(polygon_fun, NA)),
-         fortified = map(foot_polygons, possibly(fortify_fun, NA)))
+         fortified = map(foot_polygons, possibly(fortify_fun, NA)))%>%
+  arrange(names)
+
 ##not perfect but a good start!
 
 ggplot()+
@@ -269,4 +271,31 @@ for(i in 1:98){
     ggtitle(names(footprint_plots)[i])
 }
 
-footprint_plots[[91]] 
+footprint_plots[[23]] 
+
+footprint_plots_df%>%
+  select(names)%>%
+  write.csv(., "footprint_names.csv")
+
+#read in revised csv
+footprint_names<-read.csv("Data/footprint_names.csv")
+all_footprints<-all_footprints%>%
+  filter(names %in% footprint_names$names)
+
+#bring in landings data (species per port)
+comm_res<-top_species%>%
+  filter(!PORT == "LUBEC, ME")%>%
+  group_by(PORT)%>%
+  nest()%>%
+  arrange(PORT)
+comm_res<-comm_res%>%
+  cbind(all_footprints%>%
+          select(names, fortified)%>%
+          arrange(names))
+comm_res<-comm_res%>%
+  unnest(data)%>%
+  unnest(fortified)%>%
+  select(!PER.RANK)%>%
+  group_by(PORT, names, SPPNAME)%>%
+  nest()%>%
+  relocate("names", .after="PORT")
