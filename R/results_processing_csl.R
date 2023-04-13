@@ -290,12 +290,14 @@ comm_res<-top_species%>%
   arrange(PORT)
 comm_res<-comm_res%>%
   cbind(all_footprints%>%
-          select(names, fortified)%>%
           arrange(names))
-comm_res<-comm_res%>%
-  unnest(data)%>%
-  unnest(fortified)%>%
-  select(!PER.RANK)%>%
-  group_by(PORT, names, SPPNAME)%>%
-  nest()%>%
-  relocate("names", .after="PORT")
+comm_footprints_raster<-comm_res%>%
+  select(PORT, footprints)
+
+#comm_res<-comm_res%>%
+  #unnest(data)%>%
+  #unnest(fortified)%>%
+  #select(!PER.RANK)%>%
+  #group_by(PORT, names, SPPNAME)%>%
+  #nest()%>%
+  #relocate("names", .after="PORT")
