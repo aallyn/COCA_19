@@ -127,6 +127,116 @@ test_data%>%
   facet_wrap(~Variable)+
   ggtitle("Lobster; Portland, ME")
 
+# Calculate Percent Change
+test_2055<-test_data%>%
+  filter(Variable == "Baseline_Mean_Dens")%>%
+  ungroup(Variable)%>%
+  select(points)%>%
+  unnest(points)%>%
+  select(Value)%>%
+  rename("Baseline_Value" = "Value")%>%
+  cbind(test_data%>%
+          filter(Variable == "Projected_2055_Mean_Dens")%>%
+          ungroup(Variable)%>%
+          select(points)%>%
+          unnest(points)%>%
+          select(Value)%>%
+          rename("Projected_Value" = "Value"))%>%
+  reframe(pct_change = ((Baseline_Value - Projected_Value)/Baseline_Value)*100)%>%
+  mutate(z = pct_change > 0)%>%
+  cbind(test_data%>%
+          filter(Variable == "Projected_2055_Mean_Dens")%>%select(points)%>%unnest(points)%>%select(geometry))
+
+ggplot()+
+  geom_sf(data = land_sf, fill = "gray50", color = "white", size = 0.15) +
+  geom_sf(data = test_2055, aes( geometry=geometry, color= pct_change) , size=5, pch=15)+
+  coord_sf(xlim = c(-182500, 1050000), ylim = c(4275000, 5370000), expand = F, crs = 32619)+
+  scale_color_gmri(discrete = F)+
+  theme_gmri()+
+  ggtitle("Lobster; Portland, ME")
+
+#2075
+test_2075<-test_data%>%
+  filter(Variable == "Baseline_Mean_Dens")%>%
+  ungroup(Variable)%>%
+  select(points)%>%
+  unnest(points)%>%
+  select(Value)%>%
+  rename("Baseline_Value" = "Value")%>%
+  cbind(test_data%>%
+          filter(Variable == "Projected_2075_Mean_Dens")%>%
+          ungroup(Variable)%>%
+          select(points)%>%
+          unnest(points)%>%
+          select(Value)%>%
+          rename("Projected_Value" = "Value"))%>%
+  reframe(pct_change = ((Baseline_Value - Projected_Value)/Baseline_Value)*100)%>%
+  mutate(z = pct_change > 0)%>%
+  cbind(test_data%>%
+          filter(Variable == "Projected_2075_Mean_Dens")%>%select(points)%>%unnest(points)%>%select(geometry))
+ggplot()+
+  geom_sf(data = land_sf, fill = "gray50", color = "white", size = 0.15) +
+  geom_sf(data = test_2075, aes( geometry=geometry, color= pct_change) , size=5, pch=15)+
+  coord_sf(xlim = c(-182500, 1050000), ylim = c(4275000, 5370000), expand = F, crs = 32619)+
+  scale_color_gmri(discrete = F)+
+  theme_gmri()+
+  ggtitle("Lobster; Portland, ME")
+
+#combine them? 
+percent_change <- test_2055 %>% rbind(test_2075)
+ggplot()+
+  geom_sf(data = land_sf, fill = "gray50", color = "white", size = 0.15) +
+  geom_sf(data = percent_change, aes( geometry=geometry, color= pct_change) , size=5, pch=15)+
+  coord_sf(xlim = c(-182500, 1050000), ylim = c(4275000, 5370000), expand = F, crs = 32619)+
+  scale_color_gmri(discrete = F)+
+  facet_wrap(~Variable)+
+  theme_gmri()+
+  ggtitle("Lobster SSP1-2.6; Portland, ME")
+
+# Try with all_lob_dens_grid
+#all_lob_dens_grid<-
+all_lob_dens_grid<-all_lob_dens_grid%>%
+  pivot_wider(names_from = "Variable", values_from = "Value")%>%
+  mutate(pct_change_2055 = ((Baseline_Mean_Dens - Projected_2055_Mean_Dens)/Baseline_Mean_Dens)*100,
+         pct_change_2075 = ((Baseline_Mean_Dens - Projected_2075_Mean_Dens)/Baseline_Mean_Dens)*100)%>%
+  #pivot_longer(cols=4:6, names_to="Variable", values_to="Value")%>%
+  select(!Lat)%>%
+  select(!Lon)
+
+# For some reason, the lengths of the all_lob_dens_grid and the tests are not the same length
+# It's not filtered to the poooorrrrtttttt - I'm stupid ok
+
+plot_2055<-ggplot()+
+  geom_sf(data = land_sf, fill = "gray50", color = "white", size = 0.15) +
+  geom_sf(data =all_lob_dens_grid, aes( geometry=geometry, color= pct_change_2055, fill=pct_change_2055) , size=5, pch=15)+
+  coord_sf(xlim = c(-182500, 1050000), ylim = c(4275000, 5370000), expand = F, crs = 32619)+
+  theme_gmri()+
+  scale_fill_gmri(discrete=F)+
+  scale_color_gmri(discrete=F)+
+  ggtitle("2055")
+
+plot_2075<-ggplot()+
+  geom_sf(data = land_sf, fill = "gray50", color = "white", size = 0.15) +
+  geom_sf(data =all_lob_dens_grid, aes( geometry=geometry, color= pct_change_2075, fill=pct_change_2075) , size=5, pch=15)+
+  coord_sf(xlim = c(-182500, 1050000), ylim = c(4275000, 5370000), expand = F, crs = 32619)+
+  theme_gmri()+
+  scale_fill_gmri(discrete=F)+
+  scale_color_gmri(discrete=F)+
+  ggtitle("2075")
+
+base_plot<-ggplot()+
+  geom_sf(data = land_sf, fill = "gray50", color = "white", size = 0.15) +
+  geom_sf(data =all_lob_dens_grid, aes( geometry=geometry, color= Baseline_Mean_Dens, fill=Baseline_Mean_Dens) , size=5, pch=15)+
+  coord_sf(xlim = c(-182500, 1050000), ylim = c(4275000, 5370000), expand = T, crs = 32619)+
+  scale_fill_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
+  scale_color_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
+  theme_gmri()+
+  ggtitle("Baseline")
+
+library(gridExtra)
+grid.arrange(base_plot, plot_2055, plot_2075, ncol=3)
+
+# Okay cool that worked. On monday, working on cropping these to the Portland footprint (or just use the test ones)
 
 # Pause on this for a minute
 base_test<-st_as_sf(base_test)
