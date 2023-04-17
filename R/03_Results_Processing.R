@@ -1,26 +1,16 @@
-#####
-## Results processing kickstarter
-#Carly's Versions
-#####
-
 ### 
 # Preliminary stuff
 ###
 library(tidyverse)
-library(viridis)
-library(raster)
 library(sf)
 library(terra)
 library(rnaturalearth)
 library(gmRi)
-install.packages("rasterVis")
-library(rasterVis)
 library(stringi)
 
 # A land shapefile..
 land_sf <- ne_states(c("united states of america", "canada"), returnclass = "sf") %>%
   st_transform(., crs = 32619)
-
 
 ###
 # SpeciesShortName_VASTModelDescription_CMIP6_SSPX_YY_ClimateEnsembleStat.rds
@@ -58,22 +48,6 @@ species_scen_func<-function(file_path){
 
 all_proj_res<-all_proj_res%>%
   mutate(., "Species_Scenario" = map(File_Path, species_scen_func))
-all_proj_res$Species_Scenario[1]
-
-#name_vector<-list.files(projection_res_path, pattern = "_mean.rds", full.names = TRUE)
-#for(i in 1:26){name_vector[i]<-stri_sub(name_vector[i],95,999)} # removes box path
-#for(i in 1:26){name_vector[i]<-unlist(str_split(name_vector[i],"_mean"))[1]} # removes _mean.rds
-
-
-# Look at just one of these objects to see its structure
-names(all_proj_res$Data[[1]])
-
-# Index: The projected overall biomass index, with columns for time, Region, Prob_0.5 (mean across the 100 projection simulations to represent uncertainty in fitted VAST model), Prob_0.1 (10th percentile across 100 simulations), Prob_0.9 (90th percentile across 100 simulations). We will likely just use Prob_0.5.
-# Dens: The projected density (kg per km2) at each grid cell, with columns for the Lat, Lon of the grid cell, time, and then similar probability measures as index.
-# COG: Ignore for now
-# COG_True: The center of gravity, with columns for time, and then we have the Lon/Lat median, 10th and 90th percentiles across the 100 projection simulations. As above, we are just going to use Lon_Prob_0.5 and Lat_Prob_0.5
-# EffArea: Ignore for now
-# EffArea_True: The effective area occupied, with columns for Time, Region, and then the probability measures. Again, we will just use "Prob_0.5" for this work. 
 
 # For now, we are mostly going to be using the results in the "Dens" object to make our maps and then also for cropping with community footprints to get our summaries of change. Let's pull out the density results as a new column
 get_dens_func<- function(data){
@@ -85,7 +59,6 @@ all_proj_res <- all_proj_res %>%
   mutate(., "Density" = map(Data, get_dens_func))
 
 names(all_proj_res$Density[[1]])
-
 
 #Create gridded data (?) -> Convert points in sf polygon for plotting
 bSquare <- function(x, a, coords = c("x", "y")) {
@@ -102,12 +75,11 @@ bSquare <- function(x, a, coords = c("x", "y")) {
   return(x)
 }
 
-# Now a plotting function...
-plot_raw_dens_func<- function(dens_data, species_scen, baseline_years = seq(from = 2010, to = 2019), projection_years = c(2055, 2075), ...){
+dens_grid_func<- function(dens_data, species_scen, baseline_years = seq(from = 2010, to = 2019), projection_years = c(2055, 2075), ...){
   
   if(FALSE){ 
+    species_scen<- all_proj_res$Species_Scenario[[1]]
     dens_data <- all_proj_res$Density[[1]]
-    species_scen <- all_proj_res$Species_Scenario[[1]]
     baseline_years <- seq(from = 2010, to = 2019)
     projection_years<- c(2055, 2075)
     name_vector<-list.files(projection_res_path, pattern = "_mean.rds", full.names = TRUE)
@@ -115,6 +87,7 @@ plot_raw_dens_func<- function(dens_data, species_scen, baseline_years = seq(from
   
   # Going to want an "average" across the baseline years..
   base_data <- dens_data %>%
+    #mutate(species_scen = species_scen)%>%
     filter(., format(Time, "%Y") >= min(baseline_years) & format(Time, "%Y") <= max(baseline_years)) %>%
     group_by(., Lat, Lon) %>%
     summarize(., "Baseline_Mean_Dens" = mean(Prob_0.5)) %>%
@@ -145,72 +118,40 @@ plot_raw_dens_func<- function(dens_data, species_scen, baseline_years = seq(from
   # Create "grid cells"
   all_dens_grid <- bSquare(all_dens_data, a = 25000 * 25000, coords = c("Lon", "Lat"))
   
-  # Plot em...
-  dens_panel_plot <- ggplot() +
-    geom_sf(data = land_sf, fill = "gray50", color = "white", size = 0.15) +
-    geom_sf(data = all_dens_grid, aes(fill = Value, color = Value, geometry = geometry)) +
-    scale_fill_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
-    scale_color_viridis_c(option = "viridis", na.value = "transparent", trans = "log10") +
-    theme_gmri()+
-    ggtitle(species_scen)+
-    facet_wrap(~Variable, ncol = 3) +
-    coord_sf(xlim = c(-182500, 1550000), ylim = c(3875000, 5370000), expand = F, crs = 32619)
+  # Add species scenario
+  all_dens_grid <- all_dens_grid %>%
+    mutate(species_scen = species_scen)
   
-  # Return it
-  return(dens_panel_plot)
+  return(all_dens_grid)
 }
 
 # Let's map that to each of the species...
 all_proj_res <- all_proj_res %>%
-  mutate(., "Dens_Panel_Plot" = map2(Density, Species_Scenario, plot_raw_dens_func))
+  mutate(., "Dens_Grid" = map2(Density, Species_Scenario, dens_grid_func))
 
-# How'd we do?
-all_proj_res$Dens_Panel_Plot[[1]]
-all_proj_res$Dens_Panel_Plot[[8]]
-
-str(all_proj_res$Dens_Panel_Plot)
+# Pull gridded density data from all_proj_res, unnest and create new data frame
+all_dens_grid<- all_proj_res$Dens_Grid
 
 ###
-# Cropping density to community footprints
+# Footprints
 ###
+library(raster)
 foot_stack <- raster::stack(paste0(project_box_path, "data/All VTR safe fishing footprints by community and gear type 2011-2015.grd"))
-
-# What's in here??
-foot_stack
-
-# Dimensions of raster have the number of longitudes (nrow), latitudes (ncol) and then nlayers is the number of unique community and gear type footprints. Generally, we use the "All" combined footprint, which basically kept any unique cell "fished" across the different gear types.
-names(foot_stack[[1]])
 
 # Get the stack index for names with "All"
 all_ind <- which(grepl("All", names(foot_stack)))
 names(foot_stack)[all_ind]
 
-# 126 unique communities. The names are a bit of a nightmare. The easiest thing I think will be to create a table for the selected communities that maps from the community names for the landings to the community names here. I think we have something similar that does this for all the communities...so let me know if you get to that point and you are going nuts!
-
 # Let's reduce the raster stack to just these "All" gear footprints for each of the communities
 all_foot_stack<- foot_stack[[all_ind]]
 
-# Plot one?
-plot(all_foot_stack[[1]])
-
-# Beautiful :) So, a few things...the "fill" here doesn't really make sense because we are using this "All" gear type. So, we can reclassify this so that we just have binary "fished" and "not-fished" cells.
+# Reclassify to binary "fished" and "not-fished" cells.
 m <- c(0, Inf, 1,  -Inf, 0, NA)
 rclmat <- matrix(m, ncol=3, byrow=TRUE)
 all_foot_stack_bin<- raster::reclassify(all_foot_stack, rclmat) 
 
-plot(all_foot_stack_bin[[1]])
-
-# Check that they are in the same spatial projection (gross)
-ggplot() +
-  geom_tile(data = as.data.frame(all_foot_stack_bin[[1]], xy = TRUE), aes(x = x, y = y)) +
-  geom_point(data = all_proj_res$Density[[1]][all_proj_res$Density[[1]]$Time == as.Date("1985-03-16"),], aes(x = Lon, y = Lat), color = "red")
-
-# Now, the overlay. There are a ton of different ways to do this as you probably remember from before. Running out of steam a bit, but happy to help out as you get here!
-
 ##CSL: Convert foot print to polygons and fortify to use in ggplot
-#Created nested data frame?
-library(raster)
-library(rasterVis)
+# Create nested data frame?
 all_footprints <- unstack(all_foot_stack_bin)
 all_footprints<-tibble("footprints" = all_footprints)%>%
   mutate(names = names(foot_stack)[all_ind])
@@ -230,12 +171,7 @@ all_footprints<-all_footprints%>%
          fortified = map(foot_polygons, possibly(fortify_fun, NA)))%>%
   arrange(names)
 
-##not perfect but a good start!
-
-###debug polygon functions
-plot(all_foot_stack_bin[[125]])
-#Okay, so some are just empty. Cool. 
-#dropping nulls
+# Dropping nulls
 all_footprints<-all_footprints%>%
   drop_na()
 
@@ -262,12 +198,12 @@ footprint_plots_df%>%
   select(names)%>%
   write.csv(., "footprint_names.csv")
 
-#read in revised csv
+# Read in revised csv
 footprint_names<-read.csv("Data/footprint_names.csv")
 all_footprints<-all_footprints%>%
   filter(names %in% footprint_names$names)
 
-#bring in landings data (species per port)
+# Bring in landings data (species per port)
 comm_res<-top_species%>%
   filter(!PORT == "LUBEC, ME")%>%
   group_by(PORT)%>%
@@ -276,6 +212,49 @@ comm_res<-top_species%>%
 comm_res<-comm_res%>%
   cbind(all_footprints%>%
           arrange(names))
-comm_footprints_raster<-comm_res%>%
-  select(PORT, footprints)
 
+# Transform CRS of footprints to match density
+comm_footprints<-comm_res%>%
+  select(PORT, fortified)%>%
+  summarise(footprint = map(fortified, function(x){
+    x<-st_as_sf(x, coords = c("long", "lat"), crs = 4326, remove=FALSE)
+    x<-st_transform(x, crs = 32619)
+    return(x)
+  }))
+comm_footprints<-comm_footprints%>%
+  unnest(footprint)%>%
+  select(PORT, geometry)%>%
+  group_by(PORT)%>%
+  nest(geometry = geometry)
+
+# Reshape density output
+dens_foot_intersect<-function(dens_data, comm_foot_data, ...){
+  
+  if(FALSE){
+    dens_data <- all_dens_grid[[1]]
+    comm_foot_data <- comm_footprints
+  }
+  
+  temp_1 <- dens_data %>%
+    select(Variable, species_scen, Value, geometry) %>%
+    rename("dens_geom" = "geometry") %>%
+    group_by(.,Variable)
+  
+  temp_2 <- comm_foot_data %>%
+    unnest(geometry) %>%
+    rename("footprint" = "geometry") %>%
+    group_by(PORT) %>%
+    nest() %>%
+    cbind(temp_1 %>%
+            nest(dens_data = Variable:dens_geom))
+  
+  dens_foot_intersect <- temp_2 %>% 
+    unnest(data) %>%
+    unnest(dens_data) %>%
+    group_by(PORT, species_scen, Variable) %>%
+    summarise(intersection = st_intersection(footprint, dens_geom, Value))
+  
+  return(dens_foot_intersect)
+}
+
+## This may be too big

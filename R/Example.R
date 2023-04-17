@@ -194,7 +194,6 @@ ggplot()+
   ggtitle("Lobster SSP1-2.6; Portland, ME")
 
 # Try with all_lob_dens_grid
-#all_lob_dens_grid<-
 all_lob_dens_grid<-all_lob_dens_grid%>%
   pivot_wider(names_from = "Variable", values_from = "Value")%>%
   mutate(pct_change_2055 = ((Baseline_Mean_Dens - Projected_2055_Mean_Dens)/Baseline_Mean_Dens)*100,
@@ -237,6 +236,20 @@ library(gridExtra)
 grid.arrange(base_plot, plot_2055, plot_2075, ncol=3)
 
 # Okay cool that worked. On monday, working on cropping these to the Portland footprint (or just use the test ones)
+# Monday 4/17 - change increasing/decreasing color palette, crop to footprint, optimize workflow
+
+
+test_3<-all_lob_dens_grid %>% 
+  pivot_longer(cols=2:4, names_to="Variable", values_to="Value") %>%
+  group_by(Variable)%>%
+  nest()%>%
+  cbind(portland %>%
+                   dplyr::select(PORT, geometry) %>%
+                   nest(footprint = PORT:geometry)) %>%
+  mutate(points = map2(data, footprint, inter_func))
+
+test_3_plots<-test_3%>%select(Variable, points)%>%
+  unnest(points) #meh
 
 # Pause on this for a minute
 base_test<-st_as_sf(base_test)
