@@ -132,6 +132,13 @@ all_proj_res <- all_proj_res %>%
 # Pull gridded density data from all_proj_res, unnest and create new data frame
 all_dens_grid<- all_proj_res$Dens_Grid
 
+# Transform from large list to tibble
+all_dens_grid <- enframe(all_dens_grid) %>%
+  select(!name)%>%
+  unnest(value) %>%
+  group_by(species_scen)%>%
+  nest()
+
 ###
 # Footprints
 ###
@@ -224,37 +231,19 @@ comm_footprints<-comm_res%>%
 comm_footprints<-comm_footprints%>%
   unnest(footprint)%>%
   select(PORT, geometry)%>%
+  rename("foot_geom" = "geometry")%>%
   group_by(PORT)%>%
-  nest(geometry = geometry)
+  nest(foot_geom = foot_geom)
 
-# Reshape density output
-dens_foot_intersect<-function(dens_data, comm_foot_data, ...){
-  
-  if(FALSE){
-    dens_data <- all_dens_grid[[1]]
-    comm_foot_data <- comm_footprints
-  }
-  
-  temp_1 <- dens_data %>%
-    select(Variable, species_scen, Value, geometry) %>%
-    rename("dens_geom" = "geometry") %>%
-    group_by(.,Variable)
-  
-  temp_2 <- comm_foot_data %>%
-    unnest(geometry) %>%
-    rename("footprint" = "geometry") %>%
-    group_by(PORT) %>%
-    nest() %>%
-    cbind(temp_1 %>%
-            nest(dens_data = Variable:dens_geom))
-  
-  dens_foot_intersect <- temp_2 %>% 
-    unnest(data) %>%
-    unnest(dens_data) %>%
-    group_by(PORT, species_scen, Variable) %>%
-    summarise(intersection = st_intersection(footprint, dens_geom, Value))
-  
-  return(dens_foot_intersect)
-}
+# Combine density data and footprints
+all_dens_grid <- all_dens_grid%>%
+  mutate(., comm_footprints %>%
+          nest(comm_footprints = PORT:foot_geom))
 
-## This may be too big
+saveRDS(all_dens_grid, file="all_dens_footprinds.RDS")
+
+# Now a plotting function
+
+    
+
+
