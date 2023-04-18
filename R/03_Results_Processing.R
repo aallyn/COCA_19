@@ -223,7 +223,7 @@ comm_res<-comm_res%>%
 # Transform CRS of footprints to match density
 comm_footprints<-comm_res%>%
   select(PORT, fortified)%>%
-  summarise(footprint = map(fortified, function(x){
+  reframe(footprint = map(fortified, function(x){
     x<-st_as_sf(x, coords = c("long", "lat"), crs = 4326, remove=FALSE)
     x<-st_transform(x, crs = 32619)
     return(x)
