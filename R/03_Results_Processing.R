@@ -135,7 +135,11 @@ all_dens_grid<- all_proj_res$Dens_Grid
 # Transform from large list to tibble
 all_dens_grid <- enframe(all_dens_grid) %>%
   select(!name)%>%
-  unnest(value) %>%
+  unnest(value)
+all_dens_grid <- st_as_sf(all_dens_grid, crs = 32619, remove=FALSE)
+all_dens_grid <- st_transform(all_dens_grid, crs = 32619)
+crs(all_dens_grid)
+all_dens_grid <- all_dens_grid %>% 
   group_by(species_scen)%>%
   nest()
 
@@ -182,6 +186,7 @@ all_footprints<-all_footprints%>%
 all_footprints<-all_footprints%>%
   drop_na()
 
+# Plotting footprints
 footprint_plots_df<-all_footprints%>%
   dplyr::select(names, fortified)
 nrow(footprint_plots_df)
@@ -237,7 +242,7 @@ comm_footprints<-comm_footprints%>%
 
 # Combine density data and footprints
 all_dens_grid <- all_dens_grid%>%
-  mutate(., comm_footprints %>%
+  mutate(comm_footprints %>%
           nest(comm_footprints = PORT:foot_geom))
 
 saveRDS(all_dens_grid, file="all_dens_footprinds.RDS")
