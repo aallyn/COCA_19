@@ -83,6 +83,7 @@ port_species<-species_prp%>%
 top_species<-port_species%>%
   filter(PER.RANK > 0.9)%>%
   select(!SUM)
+saveRDS(top_species, "Data/top_species_by_port.RDS")
 write.csv(top_species, "top_species_by_port.csv")
 
 #unique species to optimize workflow

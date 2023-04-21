@@ -216,6 +216,8 @@ all_footprints<-all_footprints%>%
   filter(names %in% footprint_names$names)
 
 # Bring in landings data (species per port)
+top_species <- readRDS("Data/top_species_by_port.RDS")
+
 comm_res<-top_species%>%
   filter(!PORT == "LUBEC, ME")%>%
   group_by(PORT)%>%
@@ -224,6 +226,7 @@ comm_res<-top_species%>%
 comm_res<-comm_res%>%
   cbind(all_footprints%>%
           arrange(names))
+saveRDS(comm_res, "Data/community_footprint_results.RDS")
 
 # Transform CRS of footprints to match density
 comm_footprints<-comm_res%>%
@@ -248,7 +251,3 @@ all_dens_grid <- all_dens_grid%>%
 saveRDS(all_dens_grid, file="all_dens_footprinds.RDS")
 
 # Now a plotting function
-
-    
-
-
